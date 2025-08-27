@@ -15,7 +15,6 @@ jobs:
   pufferpanel:
     runs-on: ubuntu-latest
     timeout-minutes: 315
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -54,24 +53,24 @@ jobs:
       # 7. Create Docker Compose file
       - name: Create Docker Compose for PufferPanel
         run: |
-          mkdir pufferpanel
+          mkdir -p pufferpanel
           cd pufferpanel
           cat <<EOF > docker-compose.yml
-          version: '3.8'
-          services:
-            pufferpanel:
-              image: pufferpanel/pufferpanel:latest
-              container_name: pufferpanel
-              restart: unless-stopped
-              ports:
-                - "8080:8080"
-                - "5657:5657"
-              volumes:
-                - ./config:/etc/pufferpanel
-                - ./data:/var/lib/pufferpanel
-              environment:
-                PUFFER_ADMIN_EMAIL: "admin@example.com"
-          EOF
+version: '3.8'
+services:
+  pufferpanel:
+    image: pufferpanel/pufferpanel:latest
+    container_name: pufferpanel
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "5657:5657"
+    volumes:
+      - ./config:/etc/pufferpanel
+      - ./data:/var/lib/pufferpanel
+    environment:
+      PUFFER_ADMIN_EMAIL: "admin@example.com"
+EOF
 
       # 8. Start PufferPanel
       - name: Start PufferPanel Container
@@ -97,10 +96,10 @@ jobs:
           
       # 12. Save & Commit PufferPanel Data
       - name: Commit Minecraft server data
-      if: ${{ always() }}
-      run: |
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        git add pufferpanel
-        git commit -m "Update Minecraft server data"
-        git push origin main || echo "Nothing to commit"
+        if: ${{ always() }}
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add pufferpanel
+          git commit -m "Update Minecraft server data"
+          git push origin main || echo "Nothing to commit"
