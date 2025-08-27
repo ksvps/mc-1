@@ -120,7 +120,11 @@ jobs:
           # Copy database/data
           docker cp pufferpanel:/var/lib/pufferpanel/. $GITHUB_WORKSPACE/pufferpanel/var/ || true
 
-          ls -R $GITHUB_WORKSPACE/pufferpanel
+          # --- FIX PERMISSIONS (important) ---
+          sudo chown -R $USER:$USER $GITHUB_WORKSPACE/pufferpanel
+          sudo chmod -R u+rw $GITHUB_WORKSPACE/pufferpanel
+
+          ls -lR $GITHUB_WORKSPACE/pufferpanel
 
       # 13. Stop Container Before Commit
       - name: Stop PufferPanel
