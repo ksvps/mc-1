@@ -100,6 +100,11 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add pufferpanel
-          git commit -m "Update Minecraft server data"
-          git push origin main || echo "Nothing to commit"
+    
+          # Zip the folders
+          zip -r pufferpanel-backup.zip pufferpanel/config pufferpanel/data
+    
+          # Add and commit only the zip
+          git add pufferpanel-backup.zip
+          git commit -m "Backup PufferPanel server data" || echo "Nothing to commit"
+          git push origin main || echo "Nothing to push"
