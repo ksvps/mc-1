@@ -51,19 +51,17 @@ jobs:
         with:
           node-version: '22'
       
-      # 6. Restore latest panel data (from repo)
-      - name: Pull latest pufferpanel data
+      # 6. Restore panel data from repo
+      - name: Restore PufferPanel Data
         if: ${{ always() }}
         run: |
-          git fetch origin main
-          git checkout origin/main -- pufferpanel || true
-          echo "Latest panel data restored."
-          ls -R pufferpanel || echo "No previous data"
+          mkdir -p $GITHUB_WORKSPACE/pufferpanel/etc
+          mkdir -p $GITHUB_WORKSPACE/pufferpanel/var
+          ls -R $GITHUB_WORKSPACE/pufferpanel || echo "No previous data found"
 
       # 7. Create Docker Compose file
       - name: Create Docker Compose for PufferPanel
         run: |
-          mkdir -p $GITHUB_WORKSPACE/pufferpanel
           cd $GITHUB_WORKSPACE
           cat <<EOF > docker-compose.yml
           version: '3.8'
@@ -77,6 +75,9 @@ jobs:
                 - "5657:5657"
               environment:
                 PUFFER_ADMIN_EMAIL: "admin@example.com"
+              volumes:
+                - ./pufferpanel/etc:/etc/pufferpanel
+                - ./pufferpanel/var:/var/lib/pufferpanel
           EOF
 
       # 8. Start PufferPanel
@@ -95,7 +96,7 @@ jobs:
           --password kshosting@55 \
           --admin || echo "User may already exist"
 
-      # 10. Show Public IPs
+      # 10. Show Public IP
       - name: Show Server IP
         run: |
           curl -s http://checkip.amazonaws.com
@@ -110,9 +111,16 @@ jobs:
       - name: Copy PufferPanel Data
         if: ${{ always() }}
         run: |
-          mkdir -p $GITHUB_WORKSPACE/pufferpanel/etc $GITHUB_WORKSPACE/pufferpanel/var
-          docker cp pufferpanel:/etc/pufferpanel $GITHUB_WORKSPACE/pufferpanel/etc || true
-          docker cp pufferpanel:/var/lib/pufferpanel $GITHUB_WORKSPACE/pufferpanel/var || true
+          mkdir -p $GITHUB_WORKSPACE/pufferpanel/etc
+          mkdir -p $GITHUB_WORKSPACE/pufferpanel/var
+
+          # Copy configs
+          docker cp pufferpanel:/etc/pufferpanel/. $GITHUB_WORKSPACE/pufferpanel/etc/ || true
+
+          # Copy database/data
+          docker cp pufferpanel:/var/lib/pufferpanel/. $GITHUB_WORKSPACE/pufferpanel/var/ || true
+
+          ls -R $GITHUB_WORKSPACE/pufferpanel
 
       # 13. Stop Container Before Commit
       - name: Stop PufferPanel
@@ -127,10 +135,13 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE
 
-          # Git setup
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add pufferpanel/etc pufferpanel/var || true
-          git commit -m "Update full PufferPanel data" || echo "Nothing to commit"
-          git push origin HEAD:main || echo "Nothing to push"
+          if [ -d "pufferpanel/etc" ] || [ -d "pufferpanel/var" ]; then
+            git add pufferpanel/etc pufferpanel/var
+            git commit -m "Update full PufferPanel data" || echo "Nothing to commit"
+            git push origin HEAD:main || echo "Nothing to push"
+          else
+            echo "⚠️ No PufferPanel data found to commit"
+          fi
