@@ -17,7 +17,6 @@ jobs:
     timeout-minutes: 315
 
     steps:
-      # 1. Checkout repo
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
