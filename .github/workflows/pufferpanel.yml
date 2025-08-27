@@ -1,0 +1,136 @@
+name: PufferPanel
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: write   # required for pushing changes back
+
+concurrency:
+  group: pufferpanel
+  cancel-in-progress: true
+  
+jobs:
+  pufferpanel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 315
+
+    steps:
+      # 1. Checkout repo
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0   # allow commits back
+
+      # 2. Update system
+      - name: Update & Install Dependencies
+        run: |
+          sudo apt update
+          sudo apt upgrade -y
+          sudo apt install -y curl wget unzip gnupg lsb-release software-properties-common
+
+      # 3. Install Docker
+      - name: Install Docker
+        run: |
+          curl -fsSL https://get.docker.com -o get-docker.sh
+          sh get-docker.sh
+          sudo usermod -aG docker $USER
+          docker --version
+
+      # 4. Install Docker Compose
+      - name: Install Docker Compose
+        run: |
+          sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+          docker-compose --version
+          
+      # 5. Set up Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      
+      # 6. Restore latest panel data (from repo)
+      - name: Pull latest pufferpanel data
+        if: ${{ always() }}
+        run: |
+          git fetch origin main
+          git checkout origin/main -- pufferpanel || true
+          echo "Latest panel data restored."
+          ls -R pufferpanel || echo "No previous data"
+
+      # 7. Create Docker Compose file
+      - name: Create Docker Compose for PufferPanel
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/pufferpanel
+          cd $GITHUB_WORKSPACE
+          cat <<EOF > docker-compose.yml
+          version: '3.8'
+          services:
+            pufferpanel:
+              image: pufferpanel/pufferpanel:latest
+              container_name: pufferpanel
+              restart: unless-stopped
+              ports:
+                - "8080:8080"
+                - "5657:5657"
+              environment:
+                PUFFER_ADMIN_EMAIL: "admin@example.com"
+          EOF
+
+      # 8. Start PufferPanel
+      - name: Start PufferPanel Container
+        run: |
+          cd $GITHUB_WORKSPACE
+          docker-compose up -d
+          docker ps
+
+      # 9. Create Admin User
+      - name: Create Admin User
+        run: |
+          docker exec pufferpanel /pufferpanel/pufferpanel user add \
+          --name kshosting \
+          --email kshosting@ksmail.com \
+          --password kshosting@55 \
+          --admin || echo "User may already exist"
+
+      # 10. Show Public IPs
+      - name: Show Server IP
+        run: |
+          curl -s http://checkip.amazonaws.com
+
+      # 11. Run LocalTunnel (5h)
+      - name: Run LocalTunnel (5h)
+        run: |
+          npm install -g localtunnel
+          timeout 18000s lt --port 8080 --subdomain ks-hosting
+
+      # 12. Copy PufferPanel data before stopping
+      - name: Copy PufferPanel Data
+        if: ${{ always() }}
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/pufferpanel/etc $GITHUB_WORKSPACE/pufferpanel/var
+          docker cp pufferpanel:/etc/pufferpanel $GITHUB_WORKSPACE/pufferpanel/etc || true
+          docker cp pufferpanel:/var/lib/pufferpanel $GITHUB_WORKSPACE/pufferpanel/var || true
+
+      # 13. Stop Container Before Commit
+      - name: Stop PufferPanel
+        if: ${{ always() }}
+        run: |
+          cd $GITHUB_WORKSPACE
+          docker-compose down || true
+
+      # 14. Save & Commit PufferPanel Data
+      - name: Save & Commit PufferPanel Data
+        if: ${{ always() }}
+        run: |
+          cd $GITHUB_WORKSPACE
+
+          # Git setup
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add pufferpanel/etc pufferpanel/var || true
+          git commit -m "Update full PufferPanel data" || echo "Nothing to commit"
+          git push origin HEAD:main || echo "Nothing to push"
