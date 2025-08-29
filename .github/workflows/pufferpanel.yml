@@ -47,7 +47,7 @@ jobs:
           echo "Latest Puffer Panel data restored."
           ls -l pufferpanel
 
-      - name: Start P Container
+      - name: Start Playitgg Container
         run: |
           docker-compose up -d
           
@@ -89,7 +89,7 @@ jobs:
           --admin || echo "User may already exist"
 
       # 11. Run LocalTunnel (300m)
-      - name: Run LocalTunnel (300m)
+      - name: Sleep 20000s
         run: |
           sleep 20000
           
@@ -106,12 +106,3 @@ jobs:
           git add pufferpanel.tar.gz.part-*
           git commit -m "Update Puffer Panel backup (split archive)"
           git push origin main || echo "Nothing to commit"
-
-      # --- Auto-restart workflow ---
-      - name: Restart Workflow
-        if: ${{ always() }}
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          workflow: PufferPanel
-          ref: main
-          token: ${{ secrets.GITHUB_TOKEN }}
