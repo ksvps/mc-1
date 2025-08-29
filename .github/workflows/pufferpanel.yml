@@ -46,13 +46,19 @@ jobs:
         if: ${{ always() }}
         run: |
           git fetch origin main
-          git checkout origin/main -- pufferpanel.tar.gz
+          git checkout origin/main -- pufferpanel.tar.gz.part-*
 
+          # Join all parts into one tar.gz
+          cat pufferpanel.tar.gz.part-* > pufferpanel.tar.gz
+
+          # Remove old folder
           rm -rf pufferpanel
+      
+          # Extract just like unzip
           sudo tar -xzf pufferpanel.tar.gz
 
           echo "Latest Puffer Panel data restored."
-          ls -l
+          ls -l pufferpanel
 
       # 7. Create Docker Compose file
       - name: Create Docker Compose for PufferPanel
@@ -96,7 +102,7 @@ jobs:
         run: |
           curl -s http://checkip.amazonaws.com
           npm install -g localtunnel
-          timeout 18000s lt --port 8080 --subdomain ks-hosting
+          timeout 18000s lt --port 8080 --subdomain ks-hosting-pro
           
       # 12. Save & Commit PufferPanel Data
       - name: Commit Puffer Panel
