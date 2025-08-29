@@ -1,0 +1,117 @@
+name: PufferPanel
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: write   # required for pushing changes back
+
+concurrency:
+  group: pufferpanel
+  cancel-in-progress: true
+  
+jobs:
+  pufferpanel-1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0   # allow commits back
+
+      # 4. Install Docker Compose
+      - name: Install Docker Compose
+        run: |
+          sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+          docker-compose --version
+      
+      # --- Restore old server data ---
+      - name: Pull latest Puffer Panel data
+        if: ${{ always() }}
+        run: |
+          git fetch origin main
+          git checkout origin/main -- pufferpanel.tar.gz.part-*
+
+          # Join all parts into one tar.gz
+          cat pufferpanel.tar.gz.part-* > pufferpanel.tar.gz
+
+          # Remove old folder
+          rm -rf pufferpanel
+      
+          # Extract just like unzip
+          sudo tar -xzf pufferpanel.tar.gz
+
+          echo "Latest Puffer Panel data restored."
+          ls -l pufferpanel
+
+      - name: Start P Container
+        run: |
+          docker-compose up -d
+          
+      # 7. Create Docker Compose file
+      - name: Create Docker Compose for PufferPanel
+        run: |
+          mkdir -p pufferpanel
+          cd pufferpanel
+          cat > docker-compose.yml <<'EOF'
+          version: '3.8'
+          services:
+            pufferpanel:
+              image: pufferpanel/pufferpanel:latest
+              container_name: pufferpanel
+              restart: unless-stopped
+              ports:
+                - "8080:8080"
+                - "5657:5657"
+              volumes:
+                - ./config:/etc/pufferpanel
+                - ./data:/var/lib/pufferpanel
+              environment:
+                PUFFER_ADMIN_EMAIL: "admin@example.com"
+          EOF
+
+      # 8. Start PufferPanel
+      - name: Start PufferPanel Container
+        run: |
+          cd pufferpanel
+          docker-compose up -d
+
+      # 9. Create Admin User
+      - name: Create Admin User
+        run: |
+          docker exec pufferpanel /pufferpanel/pufferpanel user add \
+          --name kshosting \
+          --email kshosting@ksmail.com \
+          --password kshosting@55 \
+          --admin || echo "User may already exist"
+
+      # 11. Run LocalTunnel (300m)
+      - name: Run LocalTunnel (300m)
+        run: |
+          sleep 25000
+          
+      # 12. Save & Commit PufferPanel Data
+      - name: Commit Puffer Panel
+        if: ${{ always() }}
+        run: |
+          # Create archive
+          sudo tar -czf - pufferpanel | split -b 90M - pufferpanel.tar.gz.part-
+
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add pufferpanel.tar.gz.part-*
+          git commit -m "Update Puffer Panel backup (split archive)"
+          git push origin main || echo "Nothing to commit"
+
+      # --- Auto-restart workflow ---
+      - name: Restart Workflow
+        if: ${{ always() }}
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: PufferPanel
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
