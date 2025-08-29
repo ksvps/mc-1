@@ -102,11 +102,12 @@ jobs:
       - name: Commit Puffer Panel
         if: ${{ always() }}
         run: |
-          sudo tar -czf pufferpanel.tar.gz pufferpanel
+          # Create archive
+          sudo tar -czf - pufferpanel | split -b 90M - pufferpanel.tar.gz.part-
 
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add pufferpanel.tar.gz
-          git commit -m "Update Puffer Panel backup"
+          git add pufferpanel.tar.gz.part-*
+          git commit -m "Update Puffer Panel backup (split archive)"
           git push origin main || echo "Nothing to commit"
