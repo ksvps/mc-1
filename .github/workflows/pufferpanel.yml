@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
   
 jobs:
-  pufferpanel-1:
+  pufferpanel:
     runs-on: ubuntu-latest
     timeout-minutes: 355
     steps:
@@ -91,7 +91,7 @@ jobs:
       # 11. Run LocalTunnel (300m)
       - name: Run LocalTunnel (300m)
         run: |
-          sleep 25000
+          sleep 20000
           
       # 12. Save & Commit PufferPanel Data
       - name: Commit Puffer Panel
