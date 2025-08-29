@@ -42,13 +42,17 @@ jobs:
           node-version: '22'
       
       # --- Restore old server data ---
-      - name: Pull latest data
+      - name: Pull latest Puffer Panel data
         if: ${{ always() }}
         run: |
           git fetch origin main
-          git checkout origin/main -- pufferpanel
-          echo "Latest server data restored."
-          ls
+          git checkout origin/main -- pufferpanel.tar.gz
+
+          rm -rf pufferpanel
+          sudo tar -xzf pufferpanel.tar.gz
+
+          echo "Latest Puffer Panel data restored."
+          ls -l
 
       # 7. Create Docker Compose file
       - name: Create Docker Compose for PufferPanel
@@ -98,14 +102,11 @@ jobs:
       - name: Commit Puffer Panel
         if: ${{ always() }}
         run: |
-          # Create a zip file of the pufferpanel folder
-          zip -r pufferpanel.zip pufferpanel
+          sudo tar -czf pufferpanel.tar.gz pufferpanel
 
-          # Configure git
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Add and commit the zip file
-          git add pufferpanel.zip
+          git add pufferpanel.tar.gz
           git commit -m "Update Puffer Panel backup"
           git push origin main || echo "Nothing to commit"
