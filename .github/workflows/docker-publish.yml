@@ -19,12 +19,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0   # allow commits back
-
-      # 2. Update system
-      - name: Update & Install Dependencies
-        run: |
-          sudo apt update
+          fetch-depth: 0 
 
       # 4. Install Docker Compose
       - name: Install Docker Compose
