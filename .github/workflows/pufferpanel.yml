@@ -95,16 +95,17 @@ jobs:
           timeout 18000s lt --port 8080 --subdomain ks-hosting
           
       # 12. Save & Commit PufferPanel Data
-      - name: Commit Minecraft server data
+      - name: Commit Puffer Panel
         if: ${{ always() }}
         run: |
+          # Create a zip file of the pufferpanel folder
+          zip -r pufferpanel.zip pufferpanel
+
+          # Configure git
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-    
-          # Zip the folders
-          zip -r pufferpanel-backup.zip pufferpanel/config pufferpanel/data
-    
-          # Add and commit only the zip
-          git add pufferpanel-backup.zip
-          git commit -m "Backup PufferPanel server data" || echo "Nothing to commit"
-          git push origin main || echo "Nothing to push"
+
+          # Add and commit the zip file
+          git add pufferpanel.zip
+          git commit -m "Update Puffer Panel backup"
+          git push origin main || echo "Nothing to commit"
