@@ -106,3 +106,12 @@ jobs:
           git add pufferpanel.tar.gz.part-*
           git commit -m "Update Puffer Panel backup (split archive)"
           git push origin main || echo "Nothing to commit"
+
+      # --- Auto-restart workflow ---
+      - name: Restart Workflow
+        if: ${{ always() }}
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: PufferPanel
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
