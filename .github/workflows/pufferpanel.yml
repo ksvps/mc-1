@@ -20,7 +20,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0   # allow commits back
-
+    
       # 4. Install Docker Compose
       - name: Install Docker Compose
         run: |
@@ -33,20 +33,19 @@ jobs:
         if: ${{ always() }}
         run: |
           git fetch origin main
-          git checkout origin/main -- pufferpanel.tar.gz.part-*
-
-          # Join all parts into one tar.gz
-          cat pufferpanel.tar.gz.part-* > pufferpanel.tar.gz
-
-          # Remove old folder
-          rm -rf pufferpanel
-      
-          # Extract just like unzip
-          sudo tar -xzf pufferpanel.tar.gz
-
-          echo "Latest Puffer Panel data restored."
-          ls -l pufferpanel
-
+          git checkout origin/main -- pufferpanel_*.tar.gz.part-* || echo "No previous backup found"
+          if ls pufferpanel_*.tar.gz.part-* 1> /dev/null 2>&1; then
+            echo "Joining backup parts..."
+            cat pufferpanel_*.tar.gz.part-* > pufferpanel.tar.gz
+            rm -rf pufferpanel
+            mkdir -p pufferpanel
+            echo "Extracting backup..."
+            sudo tar -xzf pufferpanel.tar.gz -C .
+            echo "Latest Puffer Panel data restored."
+            ls -l pufferpanel
+          else
+            echo "No backup found, starting fresh."
+          fi
       - name: Start Playitgg Container
         run: |
           docker-compose up -d
@@ -72,13 +71,11 @@ jobs:
               environment:
                 PUFFER_ADMIN_EMAIL: "admin@example.com"
           EOF
-
       # 8. Start PufferPanel
       - name: Start PufferPanel Container
         run: |
           cd pufferpanel
           docker-compose up -d
-
       # 9. Create Admin User
       - name: Create Admin User
         run: |
@@ -88,25 +85,35 @@ jobs:
           --password kshosting@55 \
           --admin || echo "User may already exist"
 
-      # 11. Run LocalTunnel (300m)
-      - name: Sleep 20000s
+      - name: Install tmate
+        run: sudo apt-get update && sudo apt-get install -y tmate
+        
+      # 11. Run LocalTunnel (keep alive)
+      - name: Start tmate session
         run: |
+          tmate -S /tmp/tmate.sock new-session -d
+          tmate -S /tmp/tmate.sock wait tmate-ready
+          echo "SSH session:"
+          tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}'
+          echo "Web session:"
+          tmate -S /tmp/tmate.sock display -p '#{tmate_web}'
           sleep 20000
           
       # 12. Save & Commit PufferPanel Data
       - name: Commit Puffer Panel
         if: ${{ always() }}
         run: |
-          # Create archive
-          sudo tar -czf - pufferpanel | split -b 90M - pufferpanel.tar.gz.part-
-
+          TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
+          BACKUP_NAME="pufferpanel_${TIMESTAMP}.tar.gz"
+          echo "Cleaning old backups..."
+          git rm -f pufferpanel_*.tar.gz.part-* || true
+          echo "Creating backup: $BACKUP_NAME"
+          sudo tar -czf - pufferpanel | split -b 90M - ${BACKUP_NAME}.part-
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-          git add pufferpanel.tar.gz.part-*
-          git commit -m "Update Puffer Panel backup (split archive)"
-          git push origin main || echo "Nothing to commit"
-
+          git add ${BACKUP_NAME}.part-*
+          git commit -m "Backup PufferPanel data ($TIMESTAMP)" || echo "Nothing to commit"
+          git push origin main || echo "Nothing to push"
       # --- Auto-restart workflow ---
       - name: Restart Workflow
         if: ${{ always() }}
