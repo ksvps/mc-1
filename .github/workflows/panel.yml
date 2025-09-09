@@ -52,7 +52,7 @@ jobs:
         run: |
           docker pull ngrok/ngrok
           sleep 5
-          docker run --net=host -it -e NGROK_AUTHTOKEN=32SYQhncZu3j5enExFCrJrzf4Yy_7oC6CTMSDaXQ25Q2m9d4W ngrok/ngrok:latest http --url=elizabet-verisimilar-multiplicatively.ngrok-free.dev 8080
+          docker run --net=host -d -e NGROK_AUTHTOKEN=32SYQhncZu3j5enExFCrJrzf4Yy_7oC6CTMSDaXQ25Q2m9d4W ngrok/ngrok:latest http --url=elizabet-verisimilar-multiplicatively.ngrok-free.dev 8080
           
       - name: Sleep for 20000s
         run: |
